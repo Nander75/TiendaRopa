@@ -69,8 +69,7 @@ public class Ver extends AppCompatActivity {
 
         btnUsarImagen.setOnClickListener(v -> tomarFoto());
 
-        // Cargar todos los productos al inicio
-        cargarProductos(null);
+        cargarProductos(null); // Carga inicial
     }
 
     private void tomarFoto() {
@@ -90,6 +89,36 @@ public class Ver extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        // Resultado de escaneo QR
+        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        if (result != null && result.getContents() != null) {
+            String idProducto = result.getContents();
+
+            productosRef.child(idProducto).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    if (snapshot.exists()) {
+                        Producto producto = snapshot.getValue(Producto.class);
+                        if (producto != null) {
+                            Toast.makeText(Ver.this, "Producto detectado por QR: " + producto.getNombre(), Toast.LENGTH_SHORT).show();
+                            cargarProductos(producto.getNombre());
+                        } else {
+                            Toast.makeText(Ver.this, "Producto no válido", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Toast.makeText(Ver.this, "Producto no encontrado con ese QR", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    Toast.makeText(Ver.this, "Error al acceder a la base de datos", Toast.LENGTH_SHORT).show();
+                }
+            });
+            return;
+        }
+
+        // Resultado de la cámara
         if (requestCode == 101 && resultCode == RESULT_OK && data != null) {
             Bitmap foto = (Bitmap) data.getExtras().get("data");
 
@@ -99,7 +128,7 @@ public class Ver extends AppCompatActivity {
 
                 if (nombreDetectado != null) {
                     Toast.makeText(this, "Producto detectado: " + nombreDetectado, Toast.LENGTH_SHORT).show();
-                    cargarProductos(nombreDetectado); // ahora se resalta en vez de mostrar solo ese
+                    cargarProductos(nombreDetectado);
                 } else {
                     Toast.makeText(this, "No se pudo identificar el producto (confianza baja)", Toast.LENGTH_SHORT).show();
                 }
@@ -127,11 +156,11 @@ public class Ver extends AppCompatActivity {
                         if (listaProductos.get(i).getNombre().equalsIgnoreCase(nombreAResaltar)) {
                             adapter.resaltarProducto(nombreAResaltar);
                             recyclerProductos.scrollToPosition(i);
-                            break;
+                            return;
                         }
                     }
                 } else {
-                    adapter.resaltarProducto(null); // elimina resaltado
+                    adapter.resaltarProducto(null); // sin resaltado
                 }
             }
 
